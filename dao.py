@@ -7,7 +7,7 @@
 from bson import ObjectId, json_util
 from pydash import get
 
-from .utils import dt_utcnow
+from .utils import dt_utcnow, is_oid
 
 
 def to_str(x):
@@ -26,7 +26,7 @@ class Cache:
         Run script: python3 sync/collection.py db=<db name> col=<collection name> key_sync=<list keys form filter> hset_field=<field_key> tll=-1
         Note:
             - key_sync=user_id - with data-based user id
-            - key_sync=on_market#true - with on_market=true is required and it doesn't change
+            - key_sync=on_market#true - with on_market=true is required, it doesn't change
         EX:
             Run:  python3 sync/collection.py db=core col=users key_sync=on_market#true type=_id  tll=-1
 
@@ -45,7 +45,7 @@ class Cache:
 
         _fields = [f'{x}:{to_str(filter[x])}' for x in _filter_keys]
 
-        return f'{self.full_name}:{"".join(_fields)}'
+        return f'{self.full_name}:{":".join(_fields)}'
 
     def _hget(self, key):
         _raws = self.redis.hvals(key)
@@ -90,6 +90,19 @@ class Cache:
             self._hset(key=_key, raws=_items, hset_field=hset_field)
 
         return _items
+
+    def user(self, user_id):
+        """
+            Get info of a user
+        :param user_id:
+        :return:
+        """
+        if not is_oid(user_id):
+            return {}
+        _user = self.redis.get(f'core.users:_id:{user_id}')
+        if not _user:
+            return {}
+        return json_util.loads(_user)
 
 
 class DaoModel(Cache):
