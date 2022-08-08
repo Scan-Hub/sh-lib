@@ -16,7 +16,7 @@ from flask import request, g, current_app
 from pydash import get
 from marshmallow import Schema
 from bson import json_util
-from exception import BadRequest, Forbidden
+from .exception import BadRequest, Forbidden
 from .utils import util_web3, dt_utcnow
 
 
