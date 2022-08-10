@@ -99,7 +99,7 @@ class Cache:
         """
         if not is_oid(user_id):
             return {}
-        _user = self.redis.get(f'core.users:_id:{user_id}')
+        _user = self.redis.get(f'global.users:_id:{user_id}')
         if not _user:
             return {}
         return json_util.loads(_user)
