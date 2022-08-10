@@ -7,6 +7,7 @@
 from bson import ObjectId, json_util
 from celery import Celery
 from pydash import get
+from pymongo.results import InsertOneResult
 
 from .utils import dt_utcnow, is_oid
 
@@ -131,7 +132,7 @@ class DaoModel(Cache):
         self.task_name = f"worker.model.{self.col.name}"
 
         print({
-            'name':  self.task_name,
+            'name': self.task_name,
             'queue': f"{self.col.database.name}-{project}-queue"
         })
         self.queue = InterfaceTask(
@@ -154,7 +155,9 @@ class DaoModel(Cache):
             print("send worker")
             return row
         else:
-            return self.col.insert_one(row)
+            _result = self.col.insert_one(row)
+            row['_id'] = _result.inserted_id
+            return row
 
     def update_one(self, filter: dict, obj: dict, *args, **kwargs):
 
