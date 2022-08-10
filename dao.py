@@ -152,7 +152,6 @@ class DaoModel(Cache):
                 func='insert_one',
                 row=row
             )
-            print("send worker")
             return row
         else:
             _result = self.col.insert_one(row)

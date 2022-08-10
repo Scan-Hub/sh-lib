@@ -39,30 +39,30 @@ class HTTPSecurity:
                 None, 1)
 
             if auth_type != 'Bearer':
-                return False
+                return False, None
 
             if not token:
-                return False
+                return False, None
             _token_base64_bytes = token.encode()
             _token_byte = base64.b64decode(_token_base64_bytes)
             _payload = _token_byte.decode()
-            return json.loads(_payload)
+            return token, json.loads(_payload)
         except (ValueError, KeyError):
             # The Authorization header is either empty or has no token
             pass
-        return False
+        return False, None
 
     def verify_token(self):
         try:
-            _token = self.get_token()
+            _token, _info = self.get_token()
             if not _token:
                 return False
 
-            if "signature" not in _token:
+            if "signature" not in _info:
                 return False
 
-            _signature = get(_token, 'signature')
-            _payload = get(_token, 'payload')
+            _signature = get(_info, 'signature')
+            _payload = get(_info, 'payload')
 
             _msg_hash = defunct_hash_message(text=_payload)
 
@@ -77,10 +77,11 @@ class HTTPSecurity:
                 payload = json_util.loads(_payload)
                 if get(payload, 'exp').replace(tzinfo=timezone.utc) < dt_utcnow():
                     return False
-
+                print(payload)
                 user = get(payload, 'payload')
                 _user_id = get(user, '_id')
                 if not self.redis.exists(f'tokens:{_user_id}:{_token}'):
+                    print('not exists')
                     return False
 
                 g.current_user = user
