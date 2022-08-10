@@ -125,7 +125,7 @@ class InterfaceTask:
 
 
 class DaoModel(Cache):
-    def __init__(self, col, redis=None, broker=None):
+    def __init__(self, col, redis=None, broker=None, project=None):
         super(DaoModel, self).__init__(col, redis)
         self.col = col
         print({
@@ -135,7 +135,7 @@ class DaoModel(Cache):
         self.task_name = f"worker.model.{self.col.name}"
         self.queue = InterfaceTask(
             name=self.task_name,
-            queue_name=f"{self.col.database.name}-queue",
+            queue_name=f"{self.col.database.name}-{project}-queue",
             broker=broker
         ) if broker else None
 
