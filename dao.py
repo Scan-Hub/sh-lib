@@ -5,6 +5,7 @@
         -
 """
 from bson import ObjectId, json_util
+from celery import Celery
 from pydash import get
 
 from .utils import dt_utcnow, is_oid
@@ -99,23 +100,59 @@ class Cache:
         """
         if not is_oid(user_id):
             return {}
-        _user = self.redis.get(f'core.users:_id:{user_id}')
+        _user = self.redis.get(f'global.users:_id:{user_id}')
         if not _user:
             return {}
         return json_util.loads(_user)
 
 
+class InterfaceTask:
+    def __init__(self, name, queue_name, broker):
+        self.name = name
+        self.queue_name = queue_name
+        self.queue = Celery(
+            queue=queue_name,
+            broker=broker
+        )
+
+    def delay(self, *args, **kwargs):
+        self.queue.send_task(
+            args=args,
+            kwargs=kwargs,
+            name=self.name,
+            queue=self.queue_name
+        )
+
+
 class DaoModel(Cache):
-    def __init__(self, col, redis=None):
+    def __init__(self, col, redis=None, broker=None):
         super(DaoModel, self).__init__(col, redis)
         self.col = col
+        print({
+            'name': f"worker.model.{self.col.name}",
+            'queue': f"{self.col.database.name}-queue"
+        })
+        self.task_name = f"worker.model.{self.col.name}"
+        self.queue = InterfaceTask(
+            name=self.task_name,
+            queue_name=f"{self.col.database.name}-queue",
+            broker=broker
+        ) if broker else None
 
-    def insert_one(self, row: dict):
+    def insert_one(self, row: dict, worker=False):
         row['created_time'] = dt_utcnow()
         row['updated_time'] = dt_utcnow()
         if 'created_by' not in row:
             raise Exception('Required created_by')
-        return self.col.insert_one(row)
+        if worker:
+            row['_id'] = ObjectId()
+            self.worker(
+                func='insert_one',
+                row=row
+            )
+            return row
+        else:
+            return self.col.insert_one(row)
 
     def update_one(self, filter: dict, obj: dict, *args, **kwargs):
 
@@ -123,10 +160,27 @@ class DaoModel(Cache):
 
         if 'updated_by' not in obj:
             raise Exception('Required updated_by')
+        if get(kwargs, 'worker'):
+            self.worker(
+                func='update_one',
+                filter=filter,
+                obj=obj,
+                *args, **kwargs
+            )
+        else:
+            return self.col.update_one(filter=filter, update={
+                '$set': obj
+            }, *args, **kwargs)
 
-        return self.col.update_one(filter=filter, update={
-            '$set': obj
-        }, *args, **kwargs)
+    def worker(self, func, *args, **kwargs):
+        self.queue.delay(msg={
+            'func': func,
+            'model': self.__class__.__name__,
+            'payload': json_util.dumps({
+                'args': args,
+                'kwargs': kwargs
+            })
+        })
 
     def update_many(self, filter: dict, obj: dict, *args, **kwargs):
 
@@ -134,19 +188,31 @@ class DaoModel(Cache):
 
         if 'updated_by' not in obj:
             raise Exception('Required updated_by')
+        if get(kwargs, 'worker'):
+            self.worker(
+                func='update_many',
+                filter=filter,
+                obj=obj,
+                *args, **kwargs
+            )
+        else:
+            return self.col.update_many(filter=filter, update={
+                '$set': obj
+            }, *args, **kwargs)
 
-        return self.col.update_many(filter=filter, update={
-            '$set': obj
-        }, *args, **kwargs)
-
-    def insert_many(self, rows):
+    def insert_many(self, rows, worker=False):
         for row in rows:
             row['created_time'] = dt_utcnow()
 
             if 'created_time' not in row:
                 raise Exception('Required created_time')
-
-        return self.col.insert_many(rows)
+        if worker:
+            self.worker(
+                func='insert_many',
+                rows=rows
+            )
+        else:
+            return self.col.insert_many(rows)
 
     def find_one(self, filter: dict, *args, **kwargs):
         def _query():
