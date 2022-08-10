@@ -128,11 +128,12 @@ class DaoModel(Cache):
     def __init__(self, col, redis=None, broker=None, project=None):
         super(DaoModel, self).__init__(col, redis)
         self.col = col
-        print({
-            'name': f"worker.model.{self.col.name}",
-            'queue': f"{self.col.database.name}-queue"
-        })
         self.task_name = f"worker.model.{self.col.name}"
+
+        print({
+            'name':  self.task_name,
+            'queue': f"{self.col.database.name}-{project}-queue"
+        })
         self.queue = InterfaceTask(
             name=self.task_name,
             queue_name=f"{self.col.database.name}-{project}-queue",
@@ -150,6 +151,7 @@ class DaoModel(Cache):
                 func='insert_one',
                 row=row
             )
+            print("send worker")
             return row
         else:
             return self.col.insert_one(row)
