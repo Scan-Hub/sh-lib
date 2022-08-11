@@ -244,7 +244,7 @@ class DaoModel(Cache):
             del kwargs['cache']
 
         def _query():
-            return self.col.find(filter=filter, *args, **kwargs)
+            return list(self.col.find(filter=filter, *args, **kwargs))
 
         if _cache:
             return self.find_with_cache(filter=filter, hset_field=_hset_field, query=_query)
