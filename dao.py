@@ -236,12 +236,11 @@ class DaoModel(Cache):
         :return:
         """
         _hset_field = get(kwargs, 'hset_field', '_id')
-        if _hset_field:
+        if get(kwargs, 'hset_field'):
             del kwargs['hset_field']
 
         def _query():
             return self.col.find(filter=filter, *args, **kwargs)
-
 
         if get(kwargs, 'cache'):
             return self.find_with_cache(filter=filter, hset_field=_hset_field, query=_query)
