@@ -235,12 +235,16 @@ class DaoModel(Cache):
             - hset_field: field of hset in cache
         :return:
         """
+        _hset_field = get(kwargs, 'hset_field', '_id')
+        if _hset_field:
+            del kwargs['hset_field']
 
         def _query():
             return self.col.find(filter=filter, *args, **kwargs)
 
+
         if get(kwargs, 'cache'):
-            return self.find_with_cache(filter=filter, hset_field=get(kwargs, 'hset_field', '_id'), query=_query)
+            return self.find_with_cache(filter=filter, hset_field=_hset_field, query=_query)
         return _query()
 
     def page(self, filter, page_size: int, page: int, sort=1, func_sort=None, func_filter=None, hset_field='_id'):
