@@ -17,6 +17,7 @@ from pydash import get
 from marshmallow import Schema
 from bson import json_util
 from .exception import BadRequest, Forbidden
+from .logger import debug
 from .utils import util_web3, dt_utcnow
 
 
@@ -55,6 +56,8 @@ class HTTPSecurity:
     def verify_token(self):
         try:
             _token, _info = self.get_token()
+            debug(f'signature {_info}')
+
             if not _token:
                 return False
 
@@ -72,16 +75,18 @@ class HTTPSecurity:
             )
 
             if self.auth_address != _address.lower():
+                debug(f'auth_address {self.auth_address} {_address.lower()}')
                 return False
             else:
                 payload = json_util.loads(_payload)
                 if get(payload, 'exp').replace(tzinfo=timezone.utc) < dt_utcnow():
+                    debug(f'exp {_info}')
                     return False
                 print(payload)
                 user = get(payload, 'payload')
                 _user_id = get(user, '_id')
                 if not self.redis.exists(f'tokens:{_user_id}:{_token}'):
-                    print('not exists')
+                    debug(f'exists ex {_info}')
                     return False
 
                 g.current_user = user
